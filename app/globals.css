@@ -1,0 +1,35 @@
+@import "tailwindcss";
+
+/* If the line above shows an error in your editor, don't worry. 
+   Tailwind v4 uses this single import to load all utilities. */
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  background-color: #020617; /* slate-950 */
+  color: white;
+  margin: 0;
+  font-family: sans-serif;
+}
+
+/* Force bubbles to look like bubbles even if Tailwind fails */
+.chat-bubble-me {
+  background-color: #059669; /* emerald-600 */
+  border-radius: 1rem 1rem 0 1rem;
+  padding: 0.75rem 1rem;
+  color: white;
+  margin-bottom: 0.5rem;
+  max-width: 80%;
+}
+
+.chat-bubble-them {
+  background-color: #1e293b; /* slate-800 */
+  border-radius: 1rem 1rem 1rem 0;
+  padding: 0.75rem 1rem;
+  color: #e2e8f0;
+  margin-bottom: 0.5rem;
+  max-width: 80%;
+  border: 1px solid #334155;
+}
