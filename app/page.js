@@ -20,7 +20,7 @@ const [content, setContent] = useState("");
 const [loading, setLoading] = useState(true);
 const [currentRoom, setCurrentRoom] = useState("General");
 const [rooms, setRooms] = useState([]);
-const [sidebarOpen, setSidebarOpen] = useState(false); // default closed on mobile
+const [sidebarOpen, setSidebarOpen] = useState(false);
 const [onlineUsers, setOnlineUsers] = useState({});
 const [typingUsers, setTypingUsers] = useState([]);
 const [recentUsers, setRecentUsers] = useState([]);
@@ -59,10 +59,13 @@ channel
     Object.entries(state).forEach(([name, presenceArray]) => {
       presenceArray.forEach((p) => {
         if (!usersByRoom[p.room]) usersByRoom[p.room] = [];
-        if (!usersByRoom[p.room].includes(name))
+        if (!usersByRoom[p.room].includes(name)) {
           usersByRoom[p.room].push(name);
+        }
         if (p.isTyping && name !== username) {
-          if (!currentlyTyping.includes(name)) currentlyTyping.push(name);
+          if (!currentlyTyping.includes(name)) {
+            currentlyTyping.push(name);
+          }
         }
       });
     });
@@ -93,7 +96,7 @@ setLoading(true);
   const { data: msgData } = await supabase
     .from("messages")
     .select("*")
-    .ilike("content", `[${currentRoom}]%`)
+    .ilike("content", "[" + currentRoom + "]%") // SAFE STRING FIX
     .order("created_at", { ascending: true });
 
   const parsedMsgs = (msgData || []).map((msg) => {
@@ -119,8 +122,12 @@ const msgChannel = supabase
     "postgres_changes",
     { event: "INSERT", schema: "public", table: "messages" },
     (payload) => {
-      if (payload.new.content.startsWith(`[${currentRoom}]`)) {
-        const text = payload.new.content.replace(`[${currentRoom}] `, "");
+      if (payload.new.content.startsWith("[" + currentRoom + "]")) {
+        const text = payload.new.content.replace(
+          "[" + currentRoom + "] ",
+          ""
+        );
+
         const newMsg = { ...payload.new, text };
 
         setMessages((prev) => [...prev, newMsg]);
@@ -183,7 +190,7 @@ await setTyping(false);
 await supabase.from("messages").insert([
   {
     username: username.trim() || "Anon",
-    content: `[${currentRoom}] ${textToSend}`,
+    content: "[" + currentRoom + "] " + textToSend,
   },
 ]);
 ```
@@ -217,7 +224,7 @@ SUPA-CHAT </div>
             onClick={() => {
               setCurrentRoom(room);
               setContent("");
-              setSidebarOpen(false); // close on mobile
+              setSidebarOpen(false);
             }}
             className={`w-full flex justify-between px-3 py-2 rounded-lg text-sm mb-1 ${
               currentRoom === room
@@ -274,7 +281,7 @@ SUPA-CHAT </div>
         const isMe = msg.username === username;
         return (
           <div
-            key={i}
+            key={msg.id || i}
             className={`flex flex-col ${
               isMe ? "items-end" : "items-start"
             }`}
