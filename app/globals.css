@@ -12,7 +12,8 @@ body {
   margin: 0;
   padding: 0;
   height: 100%;
-  overflow: hidden; /* Prevents the whole page from scrolling */
+  width: 100%;
+  overflow: hidden; /* Prevents the whole page from scrolling so only the chat area scrolls */
   font-family:
     ui-sans-serif,
     system-ui,
@@ -26,8 +27,7 @@ body {
   -webkit-tap-highlight-color: transparent; /* Removes the blue flash on mobile taps */
 }
 
-/* Custom Scrollbar for a cleaner "App" look 
-*/
+/* Custom Scrollbar for a cleaner "App" look */
 ::-webkit-scrollbar {
   width: 5px;
 }
@@ -46,8 +46,7 @@ body {
 }
 
 /* Refined Bubble Logic 
-  These classes are backups in case Tailwind utilities 
-  don't load, but they also provide the distinct "Chat" shape.
+   We use these in the ChatApp component for those specific "tail" shapes 
 */
 .chat-bubble-me {
   background-color: #059669; /* emerald-600 */
@@ -65,11 +64,24 @@ body {
   border: 1px solid #334155;
 }
 
-/* Mobile specific tweaks 
-  Prevents UI elements from being hidden under the iOS notch 
-*/
+/* Animation for the "Optimistic" message sending state */
+@keyframes pulse-opacity {
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+.animate-sending {
+  animation: pulse-opacity 1.5s infinite ease-in-out;
+}
+
+/* Mobile specific tweaks for iOS Notch/Home indicator */
 @supports (padding: env(safe-area-inset-bottom)) {
   footer {
-    padding-bottom: calc(0.75rem + env(safe-area-inset-bottom)) !important;
+    padding-bottom: calc(1rem + env(safe-area-inset-bottom)) !important;
   }
 }
