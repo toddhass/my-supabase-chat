@@ -1,35 +1,75 @@
 @import "tailwindcss";
 
-/* If the line above shows an error in your editor, don't worry. 
-   Tailwind v4 uses this single import to load all utilities. */
-
 :root {
   color-scheme: dark;
 }
 
+/* Ensure the body doesn't bounce or scroll awkwardly on mobile */
+html,
 body {
   background-color: #020617; /* slate-950 */
   color: white;
   margin: 0;
-  font-family: sans-serif;
+  padding: 0;
+  height: 100%;
+  overflow: hidden; /* Prevents the whole page from scrolling */
+  font-family:
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    "Helvetica Neue",
+    Arial,
+    sans-serif;
+  -webkit-tap-highlight-color: transparent; /* Removes the blue flash on mobile taps */
 }
 
-/* Force bubbles to look like bubbles even if Tailwind fails */
+/* Custom Scrollbar for a cleaner "App" look 
+*/
+::-webkit-scrollbar {
+  width: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #334155; /* slate-700 */
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #475569; /* slate-600 */
+}
+
+/* Refined Bubble Logic 
+  These classes are backups in case Tailwind utilities 
+  don't load, but they also provide the distinct "Chat" shape.
+*/
 .chat-bubble-me {
   background-color: #059669; /* emerald-600 */
   border-radius: 1rem 1rem 0 1rem;
-  padding: 0.75rem 1rem;
+  padding: 0.6rem 1rem;
   color: white;
-  margin-bottom: 0.5rem;
-  max-width: 80%;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .chat-bubble-them {
   background-color: #1e293b; /* slate-800 */
   border-radius: 1rem 1rem 1rem 0;
-  padding: 0.75rem 1rem;
-  color: #e2e8f0;
-  margin-bottom: 0.5rem;
-  max-width: 80%;
+  padding: 0.6rem 1rem;
+  color: #f1f5f9;
   border: 1px solid #334155;
+}
+
+/* Mobile specific tweaks 
+  Prevents UI elements from being hidden under the iOS notch 
+*/
+@supports (padding: env(safe-area-inset-bottom)) {
+  footer {
+    padding-bottom: calc(0.75rem + env(safe-area-inset-bottom)) !important;
+  }
 }
