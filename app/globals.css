@@ -4,16 +4,21 @@
   color-scheme: dark;
 }
 
-/* Ensure the body doesn't bounce or scroll awkwardly on mobile */
+/* 1. RESET & LOCK VIEWPORT */
 html,
 body {
   background-color: #020617; /* slate-950 */
-  color: white;
+  color: #f1f5f9;
   margin: 0;
   padding: 0;
   height: 100%;
   width: 100%;
-  overflow: hidden; /* Prevents the whole page from scrolling so only the chat area scrolls */
+
+  /* Critical for Gestures: */
+  overflow: hidden;
+  overscroll-behavior-x: none; /* Stops the "swipe-to-go-back" browser feature */
+  position: fixed; /* Prevents layout shifts on mobile keyboard popup */
+
   font-family:
     ui-sans-serif,
     system-ui,
@@ -21,13 +26,24 @@ body {
     BlinkMacSystemFont,
     "Segoe UI",
     Roboto,
-    "Helvetica Neue",
-    Arial,
     sans-serif;
-  -webkit-tap-highlight-color: transparent; /* Removes the blue flash on mobile taps */
+  -webkit-tap-highlight-color: transparent; /* Removes the blue flash on click */
 }
 
-/* Custom Scrollbar for a cleaner "App" look */
+/* 2. GESTURE PROTECTION */
+.select-none {
+  user-select: none;
+  -webkit-user-select: none;
+  /* This prevents the "magnifying glass" or text selection 
+     from triggering while you are dragging the sidebar. */
+}
+
+.select-text {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+/* 3. SCROLLBAR STYLING */
 ::-webkit-scrollbar {
   width: 5px;
 }
@@ -45,43 +61,39 @@ body {
   background: #475569; /* slate-600 */
 }
 
-/* Refined Bubble Logic 
-   We use these in the ChatApp component for those specific "tail" shapes 
-*/
-.chat-bubble-me {
-  background-color: #059669; /* emerald-600 */
-  border-radius: 1rem 1rem 0 1rem;
-  padding: 0.6rem 1rem;
-  color: white;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.chat-bubble-them {
-  background-color: #1e293b; /* slate-800 */
-  border-radius: 1rem 1rem 1rem 0;
-  padding: 0.6rem 1rem;
-  color: #f1f5f9;
-  border: 1px solid #334155;
-}
-
-/* Animation for the "Optimistic" message sending state */
-@keyframes pulse-opacity {
-  0%,
-  100% {
-    opacity: 0.4;
+/* 4. ANIMATIONS & TRANSITIONS */
+@keyframes scale-in {
+  from {
+    transform: scale(0.95);
+    opacity: 0;
   }
-  50% {
-    opacity: 0.7;
+  to {
+    transform: scale(1);
+    opacity: 1;
   }
 }
 
-.animate-sending {
-  animation: pulse-opacity 1.5s infinite ease-in-out;
+.scale-in-center {
+  animation: scale-in 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
 }
 
-/* Mobile specific tweaks for iOS Notch/Home indicator */
-@supports (padding: env(safe-area-inset-bottom)) {
-  footer {
+/* 5. MOBILE SAFE AREAS (iPhone Notch/Home Bar) */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .pb-safe {
     padding-bottom: calc(1rem + env(safe-area-inset-bottom)) !important;
   }
+}
+
+/* 6. CHAT BUBBLE TAILS (Optional Aesthetic) */
+.rounded-tl-none {
+  border-top-left-radius: 4px !important;
+}
+.rounded-tr-none {
+  border-top-right-radius: 4px !important;
+}
+
+/* 7. FORCE SMOOTH SCROLLING FOR CHAT */
+.scroll-smooth {
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch; /* Momentum scrolling for iOS */
 }
