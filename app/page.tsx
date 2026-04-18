@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../src/lib/supabase";
 import ProfileModal from "../components/ProfileModal";
+import { useRouter } from "next/navigation";
 
 interface Profile {
   id: string;
@@ -29,35 +30,48 @@ export default function HomeFeed() {
   const [allUsers, setAllUsers] = useState<Profile[]>([]);
   const [content, setContent] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
     const init = async () => {
-      // 1. Get current user
+      // 1. Get current user session
       const { data: authData } = await supabase.auth.getUser();
       const currentUser = authData?.user;
 
-      if (currentUser) {
-        setUser({ id: currentUser.id });
-
-        // 2. Fetch personal profile
-        const { data: prof } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("id", currentUser.id)
-          .single();
-        if (prof) setMyProfile(prof);
-
-        // 3. Fetch users for sidebar
-        const { data: usersData } = await supabase
-          .from("profiles")
-          .select("*")
-          .limit(10);
-        if (usersData) setAllUsers(usersData);
+      if (!currentUser) {
+        router.push("/login");
+        return;
       }
 
+      setUser({ id: currentUser.id });
+
+      // 2. Fetch personal profile
+      const { data: prof } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", currentUser.id)
+        .single();
+
+      if (prof) {
+        setMyProfile(prof);
+
+        // --- AUTO-ONBOARDING LOGIC ---
+        // If the user has no full_name, we assume they haven't finished setup.
+        // We trigger the modal automatically.
+        if (!prof.full_name) {
+          setIsModalOpen(true);
+        }
+      }
+
+      // 3. Fetch other users for Sidebar
+      const { data: usersData } = await supabase
+        .from("profiles")
+        .select("*")
+        .neq("id", currentUser.id)
+        .limit(10);
+      if (usersData) setAllUsers(usersData);
+
       // 4. Fetch initial posts
-      // Note: We use the explicit FK hint 'profiles!messages_author_id_fkey'
-      // because your schema has multiple FKs to the profiles table.
       const { data, error } = await supabase
         .from("messages")
         .select(
@@ -74,11 +88,7 @@ export default function HomeFeed() {
         )
         .order("created_at", { ascending: false });
 
-      if (error) {
-        console.error("Error fetching posts:", error.message);
-      } else if (data) {
-        setPosts(data as unknown as Post[]);
-      }
+      if (data) setPosts(data as unknown as Post[]);
     };
 
     init();
@@ -90,7 +100,6 @@ export default function HomeFeed() {
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "messages" },
         async (payload) => {
-          // Fetch the profile for the new post to maintain UI consistency
           const { data: profile } = await supabase
             .from("profiles")
             .select("username, avatar_url")
@@ -112,13 +121,12 @@ export default function HomeFeed() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [router]);
 
   const handlePost = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!content.trim() || !user) return;
 
-    // Ensure 'public' exists in your 'rooms' table or this insert will fail
     const { error } = await supabase.from("messages").insert({
       content,
       author_id: user.id,
@@ -126,87 +134,117 @@ export default function HomeFeed() {
       username: myProfile?.username || "user",
     });
 
-    if (error) {
-      alert(`Error posting: ${error.message}`);
-    } else {
-      setContent("");
-    }
+    if (!error) setContent("");
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    window.location.href = "/login";
   };
 
   return (
     <div className="flex justify-center min-h-screen bg-white text-black">
-      {/* Sidebar */}
+      {/* --- SIDEBAR --- */}
       <nav className="hidden md:flex flex-col p-4 border-r w-80 sticky top-0 h-screen bg-gray-50">
-        <div className="font-bold text-xl px-2 mb-6 text-blue-600 italic">
+        <div className="font-bold text-2xl px-2 mb-8 text-blue-600 italic tracking-tighter">
           Supa Chat
         </div>
 
-        <button className="text-left p-3 hover:bg-gray-200 rounded-xl font-bold mb-4 transition bg-white shadow-sm">
-          🏠 Home Feed
+        <button className="flex items-center gap-3 text-left p-3 bg-blue-50 text-blue-600 rounded-xl font-bold mb-6 border border-blue-100">
+          <span>🏠</span> Home Feed
         </button>
 
-        <h3 className="px-2 text-xs font-semibold text-gray-500 uppercase mb-4">
-          Messages
-        </h3>
-        <div className="flex-1 overflow-y-auto space-y-2">
-          {allUsers
-            .filter((u) => u.id !== user?.id)
-            .map((u) => (
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <h3 className="px-2 text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">
+            Direct Messages
+          </h3>
+          <div className="flex-1 overflow-y-auto space-y-1">
+            {allUsers.map((u) => (
               <button
                 key={u.id}
-                className="w-full flex items-center gap-3 p-2 hover:bg-gray-200 rounded-xl transition text-left"
+                className="w-full flex items-center gap-3 p-3 hover:bg-white rounded-xl transition text-left group"
               >
                 <img
                   src={
                     u.avatar_url ||
                     `https://api.dicebear.com/7.x/avataaars/svg?seed=${u.id}`
                   }
-                  className="w-10 h-10 rounded-full bg-white border"
+                  className="w-10 h-10 rounded-full bg-gray-200 border"
                   alt="avatar"
                 />
                 <div className="flex-1 overflow-hidden">
-                  <div className="font-bold text-sm">@{u.username}</div>
+                  <div className="font-bold text-sm text-gray-800">
+                    @{u.username}
+                  </div>
                   <div className="text-xs text-gray-400 truncate">
-                    Start a chat...
+                    Active now
                   </div>
                 </div>
               </button>
             ))}
+          </div>
         </div>
 
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="mt-4 p-3 border rounded-xl hover:bg-gray-100 font-bold"
-        >
-          👤 Edit Profile
-        </button>
+        <div className="mt-4 pt-4 border-t space-y-2">
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="w-full flex items-center gap-3 p-3 hover:bg-gray-200 rounded-xl font-semibold transition text-sm text-gray-700"
+          >
+            <span>👤</span> My Profile
+          </button>
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center gap-3 p-3 hover:bg-red-50 text-red-600 rounded-xl font-bold transition text-sm"
+          >
+            <span>🚪</span> Logout
+          </button>
+        </div>
       </nav>
 
-      {/* Feed */}
-      <main className="w-full max-w-2xl border-r">
-        <div className="p-4 border-b sticky top-0 bg-white/80 backdrop-blur-md font-bold text-lg z-10">
+      {/* --- MAIN FEED --- */}
+      <main className="w-full max-w-2xl border-r bg-white min-h-screen">
+        <div className="p-4 border-b sticky top-0 bg-white/90 backdrop-blur-md font-black text-xl z-10">
           Home
         </div>
 
         <form onSubmit={handlePost} className="p-4 border-b">
-          <textarea
-            className="w-full outline-none text-lg resize-none"
-            placeholder="What's happening?"
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-          />
-          <div className="flex justify-end pt-2 border-t mt-2">
-            <button className="bg-blue-500 text-white px-6 py-1.5 rounded-full font-bold hover:bg-blue-600 transition">
-              Post
-            </button>
+          <div className="flex gap-3">
+            <img
+              src={
+                myProfile?.avatar_url ||
+                `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.id}`
+              }
+              className="w-12 h-12 rounded-full border bg-gray-100"
+              alt="My Avatar"
+            />
+            <div className="flex-1">
+              <textarea
+                className="w-full outline-none text-xl resize-none mt-2 placeholder-gray-400"
+                placeholder="What's happening?"
+                rows={3}
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+              />
+              <div className="flex justify-between items-center pt-3 border-t mt-2">
+                <span className="text-blue-500 text-sm font-medium">
+                  Public Space
+                </span>
+                <button
+                  disabled={!content.trim()}
+                  className="bg-blue-500 text-white px-6 py-2 rounded-full font-bold hover:bg-blue-600 transition disabled:opacity-50"
+                >
+                  Post
+                </button>
+              </div>
+            </div>
           </div>
         </form>
 
-        <div className="divide-y">
+        <div className="divide-y bg-gray-50">
           {posts.map((post) => (
             <div
               key={post.id}
-              className="p-4 flex gap-3 hover:bg-gray-50 transition"
+              className="p-4 flex gap-3 bg-white hover:bg-gray-50 transition"
             >
               <img
                 src={
@@ -214,32 +252,32 @@ export default function HomeFeed() {
                   `https://api.dicebear.com/7.x/avataaars/svg?seed=${post.author_id}`
                 }
                 alt="Avatar"
-                className="w-12 h-12 bg-gray-200 rounded-full flex-shrink-0"
+                className="w-12 h-12 rounded-full flex-shrink-0 border"
               />
               <div className="flex-1">
-                <div className="flex gap-2 text-sm">
-                  <span className="font-bold">
+                <div className="flex gap-2 items-center text-sm mb-1">
+                  <span className="font-bold text-gray-900">
                     @{post.profiles?.username || "user"}
                   </span>
-                  <span className="text-gray-500">
+                  <span className="text-gray-400">·</span>
+                  <span className="text-gray-400">
                     {new Date(post.created_at).toLocaleDateString()}
                   </span>
                 </div>
-                <p className="mt-1 leading-relaxed text-gray-800">
-                  {post.content}
-                </p>
+                <p className="text-gray-800">{post.content}</p>
               </div>
             </div>
           ))}
         </div>
       </main>
 
+      {/* Modal Overlay */}
       {isModalOpen && user && (
         <ProfileModal
           user={user}
           profile={myProfile}
           onClose={() => setIsModalOpen(false)}
-          onSave={(updated: Partial<Profile>) =>
+          onSave={(updated) =>
             setMyProfile((prev) => (prev ? { ...prev, ...updated } : null))
           }
         />
