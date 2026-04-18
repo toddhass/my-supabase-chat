@@ -32,12 +32,14 @@ export default function HomeFeed() {
 
   useEffect(() => {
     const init = async () => {
+      // 1. Get current user
       const { data: authData } = await supabase.auth.getUser();
       const currentUser = authData?.user;
+
       if (currentUser) {
         setUser({ id: currentUser.id });
 
-        // Fetch personal profile
+        // 2. Fetch personal profile
         const { data: prof } = await supabase
           .from("profiles")
           .select("*")
@@ -45,7 +47,7 @@ export default function HomeFeed() {
           .single();
         if (prof) setMyProfile(prof);
 
-        // Fetch other users for the "WhatsApp" sidebar
+        // 3. Fetch users for sidebar
         const { data: usersData } = await supabase
           .from("profiles")
           .select("*")
@@ -53,13 +55,32 @@ export default function HomeFeed() {
         if (usersData) setAllUsers(usersData);
       }
 
-      // Fetch initial posts
-      const { data } = await supabase
+      // 4. Fetch initial posts
+      // Note: We use the explicit FK hint 'profiles!messages_author_id_fkey'
+      // because your schema has multiple FKs to the profiles table.
+      const { data, error } = await supabase
         .from("messages")
-        .select("*, profiles:author_id(username, avatar_url)")
+        .select(
+          `
+          id, 
+          content, 
+          created_at, 
+          author_id, 
+          profiles!messages_author_id_fkey (
+            username, 
+            avatar_url
+          )
+        `,
+        )
         .order("created_at", { ascending: false });
-      if (data) setPosts(data as Post[]);
+
+      if (error) {
+        console.error("Error fetching posts:", error.message);
+      } else if (data) {
+        setPosts(data as unknown as Post[]);
+      }
     };
+
     init();
 
     // Realtime subscription
@@ -69,6 +90,7 @@ export default function HomeFeed() {
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "messages" },
         async (payload) => {
+          // Fetch the profile for the new post to maintain UI consistency
           const { data: profile } = await supabase
             .from("profiles")
             .select("username, avatar_url")
@@ -96,6 +118,7 @@ export default function HomeFeed() {
     e.preventDefault();
     if (!content.trim() || !user) return;
 
+    // Ensure 'public' exists in your 'rooms' table or this insert will fail
     const { error } = await supabase.from("messages").insert({
       content,
       author_id: user.id,
@@ -103,16 +126,19 @@ export default function HomeFeed() {
       username: myProfile?.username || "user",
     });
 
-    if (error) alert(error.message);
-    else setContent("");
+    if (error) {
+      alert(`Error posting: ${error.message}`);
+    } else {
+      setContent("");
+    }
   };
 
   return (
     <div className="flex justify-center min-h-screen bg-white text-black">
-      {/* WhatsApp Style Sidebar */}
+      {/* Sidebar */}
       <nav className="hidden md:flex flex-col p-4 border-r w-80 sticky top-0 h-screen bg-gray-50">
         <div className="font-bold text-xl px-2 mb-6 text-blue-600 italic">
-          Hybrid App
+          Supa Chat
         </div>
 
         <button className="text-left p-3 hover:bg-gray-200 rounded-xl font-bold mb-4 transition bg-white shadow-sm">
@@ -136,7 +162,7 @@ export default function HomeFeed() {
                     `https://api.dicebear.com/7.x/avataaars/svg?seed=${u.id}`
                   }
                   className="w-10 h-10 rounded-full bg-white border"
-                  alt={`${u.username} avatar`}
+                  alt="avatar"
                 />
                 <div className="flex-1 overflow-hidden">
                   <div className="font-bold text-sm">@{u.username}</div>
@@ -156,7 +182,7 @@ export default function HomeFeed() {
         </button>
       </nav>
 
-      {/* X Style Feed */}
+      {/* Feed */}
       <main className="w-full max-w-2xl border-r">
         <div className="p-4 border-b sticky top-0 bg-white/80 backdrop-blur-md font-bold text-lg z-10">
           Home
